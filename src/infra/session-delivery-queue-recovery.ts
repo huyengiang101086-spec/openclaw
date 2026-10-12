@@ -214,6 +214,10 @@ async function processDrainedSessionDelivery(
     context.log.warn(
       `${context.logLabel}: entry ${entry.id} exceeded max retries and was moved to failed`,
     );
+  } else if (result.status === "moved-to-failed" && result.finalized) {
+    context.log.warn(
+      `${context.logLabel}: entry ${entry.id} was dead-lettered and moved to failed`,
+    );
   } else if (result.status === "backoff") {
     context.log.info(
       `${context.logLabel}: entry ${entry.id} not ready for retry yet — backoff ${result.remainingMs}ms remaining`,
@@ -309,6 +313,11 @@ export async function recoverPendingSessionDeliveries(opts: {
       if (result.status === "recovered" && result.finalized) {
         summary.recovered += 1;
         opts.log.info(`Recovered session delivery ${currentEntry.id}`);
+      } else if (result.status === "moved-to-failed" && result.finalized) {
+        summary.failed += 1;
+        opts.log.warn(
+          `Session delivery: entry ${currentEntry.id} was dead-lettered and moved to failed`,
+        );
       }
       return "continue";
     },
