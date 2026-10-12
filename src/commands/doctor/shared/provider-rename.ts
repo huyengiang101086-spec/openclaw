@@ -1,4 +1,5 @@
 import { splitTrailingAuthProfile } from "../../../agents/model-ref-profile.js";
+import { getRecord } from "../../../config/legacy.shared.js";
 import type { SessionEntry } from "../../../config/sessions/types.js";
 import type { OpenClawConfig } from "../../../config/types.js";
 import type { ModelProviderConfig } from "../../../config/types.models.js";
@@ -71,12 +72,20 @@ export function applyProviderRenames(
     return { config, changes: [] };
   }
   const changes: string[] = [];
-  const rewritten = rewriteModelRefs(
-    config,
-    "config",
-    changes,
-    (ref) => rewriteProviderModelRef(ref, renames) ?? null,
-  )
+  const rewritten = rewriteModelRefs(config, "config", changes, (ref, pair) => {
+    const baseUrl = getRecord(pair?.remote)?.baseUrl;
+    const rename = renames.find(({ from }) => ref.startsWith(`${from}/`));
+    // An explicit endpoint owns this route independently of the chat provider.
+    if (
+      rename &&
+      typeof baseUrl === "string" &&
+      baseUrl.trim() &&
+      urlOrigin(baseUrl) !== urlOrigin(rename.baseUrl)
+    ) {
+      return null;
+    }
+    return rewriteProviderModelRef(ref, renames) ?? null;
+  })
     // SAFETY: The walker preserves the config shape, changing only model-reference strings and map keys.
     .value as OpenClawConfig;
   const providers = { ...rewritten.models?.providers };

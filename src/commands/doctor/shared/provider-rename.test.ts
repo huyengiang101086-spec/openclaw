@@ -62,6 +62,32 @@ describe("provider rename config migration", () => {
     }
   });
 
+  it.each([
+    ["http://127.0.0.1:11434", "ollama"],
+    ["http://192.168.1.5:11434", "ollama"],
+    ["https://embeddings.example/api", "ollama"],
+    ["https://ollama.com/v1", "ollama-cloud"],
+    ["", "ollama-cloud"],
+    ["   ", "ollama-cloud"],
+  ])("respects the memory embedding endpoint %s", (baseUrl, provider) => {
+    const config = configFor("https://ollama.com/v1");
+    config.memory = {
+      search: { provider: "ollama", model: "nomic-embed-text", remote: { baseUrl } },
+    };
+    const result = applyProviderRenames(config, planProviderRenames(config, renames));
+    expect(result.config.memory?.search).toEqual({
+      provider,
+      model: "nomic-embed-text",
+      remote: { baseUrl },
+    });
+    expect(result.config.agents?.defaults?.model).toBe("ollama-cloud/qwen:cloud");
+    expect(result.config.models?.providers?.ollama).toBeUndefined();
+    expect(config.memory.search?.provider).toBe("ollama");
+    expect(
+      result.changes.some((change) => change.includes("config.memory.search provider/model")),
+    ).toBe(provider === "ollama-cloud");
+  });
+
   it("merges into existing cloud settings without mutating input or authored auth, then is idempotent", () => {
     const config = configFor("https://ollama.com/api");
     const targetKey = { source: "env", provider: "default", id: "CLOUD_API_KEY" } as const;
