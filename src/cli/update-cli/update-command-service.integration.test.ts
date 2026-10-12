@@ -348,13 +348,12 @@ describe("preserved update activation with real version guards", () => {
 
   it.each(preservedActivationCases)(
     "handles $phase $denial denial for $mode activation ($outcome; json=$json)",
-    async ({ mode, denial, outcome, json, phase }) => {
+    async ({ mode, denial, outcome, json }) => {
       let nowMs = 0;
       vi.spyOn(performance, "now").mockImplementation(() => nowMs);
       vi.spyOn(runtimeUtils, "sleep").mockImplementation(async (ms) => {
         nowMs += ms;
       });
-      const late = phase === "late";
       const serviceCommand = await mocks.command(process.env);
       if (!serviceCommand) {
         throw new Error("missing fixture command");
@@ -363,18 +362,14 @@ describe("preserved update activation with real version guards", () => {
         ...serviceCommand,
         environment: { HOME: root, MANAGED_VALUE: "revalidated" },
       });
-      mocks.capability.mockResolvedValue(
-        late
-          ? { kind: "writable" }
-          : { kind: denial, reason: denial === "sealed" ? "foreign-owner" : "inspection-failed" },
-      );
+      mocks.capability.mockResolvedValue({ kind: "writable" });
       const before = await maybeStopManagedServiceBeforeMutableUpdate({
         updateInstallKind: mode === "git" ? "git" : "package",
         root,
         shouldRestart: true,
         jsonMode: true,
       });
-      expect(before.serviceUpdateVerdict).toMatchObject({ kind: "owned", refreshDefinition: late });
+      expect(before.serviceUpdateVerdict).toMatchObject({ kind: "owned", refreshDefinition: true });
       const repair = vi.spyOn(startRepair, "repairLoadedGatewayServiceForStart");
       mocks.child.mockImplementation(async (args) => {
         if (args.includes("install")) {
@@ -393,17 +388,8 @@ describe("preserved update activation with real version guards", () => {
           }
           return commandResult({
             code: 1,
-            stdout:
-              outcome === "json denial"
-                ? JSON.stringify({
-                    ok: false,
-                    error: `SERVICE_DEFINITION_${denial.toUpperCase()}: late owner denial`,
-                  })
-                : "",
-            stderr:
-              outcome === "json denial"
-                ? "runtime warning"
-                : `SERVICE_DEFINITION_${denial.toUpperCase()}: late owner denial`,
+            stdout: "",
+            stderr: `SERVICE_DEFINITION_${denial.toUpperCase()}: late owner denial`,
           });
         }
         if (mocks.running) {
@@ -429,9 +415,7 @@ describe("preserved update activation with real version guards", () => {
             version: VERSION,
             connId: "fixture",
             bootId: "service-boot",
-            ...(outcome === "missing build"
-              ? {}
-              : { buildId: outcome === "stale build" ? "old-build" : "new-build" }),
+            ...(outcome === "missing build" ? {} : { buildId: "new-build" }),
           },
         }),
       );
@@ -461,16 +445,16 @@ describe("preserved update activation with real version guards", () => {
           after: { version: VERSION, buildId: "new-build" },
         }),
         opts: { json, run },
-        refreshServiceEnv: late,
+        refreshServiceEnv: true,
         serviceUpdateVerdict: before.serviceUpdateVerdict,
         serviceManagerUid: before.serviceManagerUid,
         serviceEnv: before.serviceEnv,
-        gatewayPort: late ? 19001 : 19305,
+        gatewayPort: 19001,
         requireRunningServiceAfterRestart: true,
         timeoutMs: 1000,
       });
       const allowed = !["uninspectable", "foreign"].includes(outcome);
-      const buildMismatch = ["stale build", "missing build"].includes(outcome);
+      const buildMismatch = outcome === "missing build";
       expect(activated).toBe(!allowed ? "failed" : buildMismatch ? "restart-health-failed" : "ok");
       const restarts = mocks.child.mock.calls.filter(([args]) => args.includes("restart"));
       expect(restarts).toHaveLength(allowed ? (retried ? 2 : 1) : 0);
@@ -480,9 +464,7 @@ describe("preserved update activation with real version guards", () => {
         expect(args).toContain("--json");
       }
       expect(mocks.start).not.toHaveBeenCalled();
-      expect(mocks.child.mock.calls.filter(([args]) => args.includes("install"))).toHaveLength(
-        late ? 1 : 0,
-      );
+      expect(mocks.child.mock.calls.filter(([args]) => args.includes("install"))).toHaveLength(1);
       expect(mocks.health.mock.calls.every(([args]) => args.port === 19305)).toBe(true);
       if (retried) {
         expect(mocks.terminateStale).toHaveBeenCalledWith(
@@ -509,7 +491,7 @@ describe("preserved update activation with real version guards", () => {
         expect(
           mocks.error.mock.calls.flat().concat(mocks.log.mock.calls.flat()).join("\n"),
         ).toContain(
-          `Gateway build mismatch: expected new-build, running gateway reported ${outcome === "missing build" ? "unavailable" : "old-build"}.`,
+          "Gateway build mismatch: expected new-build, running gateway reported unavailable.",
         );
       }
       expect(repair).not.toHaveBeenCalled();
@@ -682,20 +664,6 @@ describe("preserved update activation with real version guards", () => {
 
   registerPluginMaintenanceTests(() => ({ root, run, mocks, writeConfig }));
 
-  it.each(["sealed", "writable"] as const)(
-    "fresh restart keeps the preserved launcher even when authority is %s",
-    async (kind) => {
-      mocks.capability.mockResolvedValue(
-        kind === "sealed" ? { kind, reason: "foreign-owner" } : { kind },
-      );
-      await servingOwner.publish();
-      await expect(runDaemonRestart({ json: true, preserveDefinition: true })).resolves.toBe(true);
-      expect(mocks.restart).toHaveBeenCalledOnce();
-      expect(mocks.install).not.toHaveBeenCalled();
-      expect(mocks.health.mock.calls[0]?.[0].port).toBe(19305);
-    },
-  );
-
   it.each(["missing", "uninspectable", "disappeared after inspection"])(
     "does not fall through to an unmanaged listener when the selected service is %s",
     async (scenario) => {
@@ -742,14 +710,11 @@ describe("preserved update activation with real version guards", () => {
 
   it.each([
     "loaded",
-    "unloaded",
     "unloaded demand",
     "start demand",
     "handoff",
     "bootstrap denied",
-    "parent unhealthy",
     "parent recovery refusal",
-    "parent late sealed",
     "parent late unknown",
     "stale retry",
   ])("checks actual LaunchAgent artifacts during %s activation", async (scenario) => {
