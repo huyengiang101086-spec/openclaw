@@ -13,6 +13,7 @@ import {
 import { managedWorktrees } from "../agents/worktrees/service.js";
 import type { ManagedWorktreeRecord } from "../agents/worktrees/types.js";
 import { getRuntimeConfig } from "../config/config.js";
+import { getSessionActorStorageBinding } from "../config/sessions/session-actor-storage-binding.js";
 import { captureSessionEntryMetadataRead } from "../config/sessions/session-entry-source-authority.js";
 import { captureIncognitoSessionBinding } from "../config/sessions/session-incognito-binding.js";
 import { LruCache } from "../infra/lru-cache.js";
@@ -125,6 +126,15 @@ export function readGitHubPublicationSession(
   sessionKey: string,
   options: Parameters<typeof loadGatewaySessionEntryReadOnly>[1] = {},
 ): PublicationSessionRead {
+  const memory = getSessionActorStorageBinding({ sessionKey, agentId: options?.agentId });
+  if (memory) {
+    return {
+      canonicalKey: sessionKey,
+      agentId: memory.agentId,
+      storePath: memory.path,
+      entry: memory.actor.snapshot(memory.authority)?.entry,
+    };
+  }
   const binding = captureIncognitoSessionBinding({ sessionKey, agentId: options?.agentId });
   if (!binding) {
     return loadGatewaySessionEntryReadOnly(sessionKey, options);
@@ -287,15 +297,16 @@ function resolveGitHubPublicationWorkspaceOwner(
 
 export async function prepareGitHubPublicationWorkspaceOwner(params: PublicationSessionIdentity) {
   const context = captureOpenClawStateWorkerContext();
-  const snapshot = captureIncognitoSessionBinding(params)
-    ? readGitHubPublicationSession(params.sessionKey, { agentId: params.agentId })
-    : await loadGatewaySessionEntryReadOnlyInWorker({
-        cfg: getRuntimeConfig(),
-        key: params.sessionKey,
-        agentId: params.agentId,
-        projection: [],
-        assertActive: () => context.admission.assertCurrent(),
-      });
+  const snapshot =
+    getSessionActorStorageBinding(params) || captureIncognitoSessionBinding(params)
+      ? readGitHubPublicationSession(params.sessionKey, { agentId: params.agentId })
+      : await loadGatewaySessionEntryReadOnlyInWorker({
+          cfg: getRuntimeConfig(),
+          key: params.sessionKey,
+          agentId: params.agentId,
+          projection: [],
+          assertActive: () => context.admission.assertCurrent(),
+        });
   context.admission.assertCurrent();
   const loaded = requirePublicationSessionOwner(params, snapshot);
   const workspaceId = loaded.entry.repositoryWorkspaceId;
@@ -433,7 +444,7 @@ export async function hasSupportedGitHubPublicationTarget(
   const context = captureOpenClawStateWorkerContext();
   const initial = requirePublicationSessionOwner(
     session,
-    captureIncognitoSessionBinding(session)
+    getSessionActorStorageBinding(session) || captureIncognitoSessionBinding(session)
       ? readGitHubPublicationSession(session.sessionKey, { agentId: session.agentId })
       : await loadGatewaySessionEntryReadOnlyInWorker({
           cfg: getRuntimeConfig(),
