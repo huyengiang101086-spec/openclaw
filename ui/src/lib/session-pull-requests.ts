@@ -109,6 +109,7 @@ export function sessionPullRequestsForGateway(
   const connection = createGatewayConnectionLifecycle(gateway.snapshot);
   let lastHello: object | null = null;
   let lastSignature: string | null = null;
+  let subscriptionMayExist = false;
   let syncRequestGeneration = 0;
   let refreshing: { generation: number; keys: readonly string[] } | null = null;
   let requestController: AbortController | null = null;
@@ -221,6 +222,7 @@ export function sessionPullRequestsForGateway(
   };
 
   const retireConnection = () => {
+    subscriptionMayExist = false;
     retainRefreshIntent(watchedKeys());
     syncRequestGeneration += 1;
     retireRequest();
@@ -378,6 +380,13 @@ export function sessionPullRequestsForGateway(
     const sessionKeys =
       typeof document !== "undefined" && document.visibilityState === "hidden" ? [] : desiredKeys;
     const signature = JSON.stringify(sessionKeys.toSorted());
+    // Capability changes do not clear a subscription already sent on this connection.
+    if (sessionKeys.length === 0 && !subscriptionMayExist) {
+      if (!isActive()) {
+        lifecycle.detach();
+      }
+      return;
+    }
     if (refreshing !== null && (signature !== lastSignature || snapshot.hello !== lastHello)) {
       // A replacement retires the old acknowledgement, not its retained intent.
       // Hidden tabs keep desired keys so their refresh resumes when shown again.
@@ -417,6 +426,7 @@ export function sessionPullRequestsForGateway(
     for (const key of refreshSessionKeys) {
       pendingRefreshKeys.delete(key);
     }
+    subscriptionMayExist ||= sessionKeys.length > 0;
     const request = client.request(
       SESSION_PULL_REQUESTS_SUBSCRIBE_METHOD,
       { sessionKeys, ...(refreshSessionKeys.length > 0 ? { refreshSessionKeys } : {}) },
@@ -428,6 +438,7 @@ export function sessionPullRequestsForGateway(
     void request
       .then(() => {
         if (isCurrentRequest()) {
+          subscriptionMayExist = sessionKeys.length > 0;
           retry.reset();
         }
       })
