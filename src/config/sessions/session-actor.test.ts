@@ -676,7 +676,7 @@ it.each([false, true])(
       const result = await appendSessionManagerActor({
         actor,
         toolResult,
-        assertCurrent: authority.assertCurrent,
+        assertCurrent: () => authority.assertCurrent(),
         append: {
           kind: "message",
           input: {
