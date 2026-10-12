@@ -60,7 +60,10 @@ it("accepts supplied legacy completion callbacks without falling back from async
   const outcome = buildAgentRunTerminalOutcome({ status: "ok" });
   const legacy = vi.fn(() => outcome);
   const recorder = {
-    ...createUserTurnTranscriptRecorder({ message: message("legacy"), target: scope }),
+    ...createUserTurnTranscriptRecorder({
+      message: message("legacy"),
+      target: { ...scope, sessionEntry: { sessionId: scope.sessionId, updatedAt: 1 } },
+    }),
     completeProcessingAsync: undefined,
     completeProcessing: legacy,
   };
