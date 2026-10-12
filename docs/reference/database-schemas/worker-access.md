@@ -37,6 +37,14 @@ from the index-facts postimage. The publication worker owns vector extension loa
 and retirement, while the retrieval worker owns read-only capability probing.
 These paths add no schema, retention, or update contract.
 
+Scheduled cron runs reuse the job and receipt loaded by their queue transaction
+when claiming and activating work. Activation commits ownership and start time
+together. Isolated preparation persists skills with the pre-run metadata, and
+continuation synchronization includes its selected CLI provider in the same
+write. Transcript existence is read only when resume fields need reconciliation.
+Duplicate-run exclusion, delivery settlement, and run-history retention keep
+their existing owners and semantics.
+
 Managed outgoing media cleanup uses the same retained session reader as media
 serving. Durable session discovery and entry reads execute in the existing
 read workers; bound incognito reads use their actor. Cleanup distinguishes an
