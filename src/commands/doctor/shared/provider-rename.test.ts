@@ -88,6 +88,53 @@ describe("provider rename config migration", () => {
     ).toBe(provider === "ollama-cloud");
   });
 
+  it.each([
+    {
+      defaultsBaseUrl: "https://ollama.com/v1",
+      search: { remote: { baseUrl: "http://127.0.0.1:11434" } },
+      expected: "ollama",
+    },
+    {
+      defaultsBaseUrl: "http://127.0.0.1:11434",
+      search: { provider: "ollama", model: "nomic-embed-text" },
+      expected: "ollama",
+    },
+    {
+      defaultsBaseUrl: "http://127.0.0.1:11434",
+      search: { remote: { baseUrl: "https://ollama.com/v1" } },
+      expected: "ollama-cloud",
+    },
+    {
+      defaultsBaseUrl: "https://ollama.com/v1",
+      search: { model: "nomic-embed-text" },
+      expected: "ollama-cloud",
+    },
+  ])(
+    "preserves the effective per-agent embedding route: %j",
+    ({ defaultsBaseUrl, search, expected }) => {
+      const config = configFor("https://ollama.com/v1");
+      config.memory = {
+        search: {
+          provider: "ollama",
+          model: "nomic-embed-text",
+          remote: { baseUrl: defaultsBaseUrl },
+        },
+      };
+      config.agents!.entries = { work: { memory: { search } } };
+      const before = structuredClone(config);
+      const result = applyProviderRenames(config, planProviderRenames(config, renames));
+      const migrated = result.config.agents?.entries?.work?.memory?.search;
+      expect(migrated?.provider ?? result.config.memory?.search?.provider).toBe(expected);
+      expect(migrated?.model ?? result.config.memory?.search?.model).toBe("nomic-embed-text");
+      expect(migrated?.remote).toEqual(before.agents?.entries?.work?.memory?.search?.remote);
+      expect(result.config.agents?.defaults?.model).toBe("ollama-cloud/qwen:cloud");
+      expect(config).toEqual(before);
+      expect(
+        applyProviderRenames(result.config, planProviderRenames(result.config, renames)),
+      ).toEqual({ config: result.config, changes: [] });
+    },
+  );
+
   it("merges into existing cloud settings without mutating input or authored auth, then is idempotent", () => {
     const config = configFor("https://ollama.com/api");
     const targetKey = { source: "env", provider: "default", id: "CLOUD_API_KEY" } as const;
