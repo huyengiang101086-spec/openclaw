@@ -370,10 +370,12 @@ actor MacNodeRuntime {
         if let parameterError {
             return Self.errorResponse(req, code: .invalidRequest, message: "INVALID_REQUEST: \(parameterError)")
         }
-        let unavailable = message == "Claude transcript page exceeded the safe scan limit"
-            ? "Claude session item exceeded the size limit"
-            : "Claude session catalog is unavailable"
-        return Self.errorResponse(req, code: .unavailable, message: "UNAVAILABLE: \(unavailable)")
+        if message == "Claude transcript page exceeded the safe scan limit" {
+            return Self.errorResponse(
+                req, code: .unavailable, message: "UNAVAILABLE: Claude session item exceeded the size limit")
+        }
+        return Self.errorResponse(
+            req, code: .unavailable, message: "UNAVAILABLE: Claude session catalog is unavailable")
     }
 }
 

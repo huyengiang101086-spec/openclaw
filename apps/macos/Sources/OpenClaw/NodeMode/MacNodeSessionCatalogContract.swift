@@ -1,6 +1,4 @@
 enum MacNodeClaudeSessionCatalogContract {
-    static let pluginId = "anthropic"
-    static let capability = "claude-sessions"
     static let listCommand = "anthropic.claude.sessions.list.v1"
     static let readCommand = "anthropic.claude.sessions.read.v1"
     static let commands = [listCommand, readCommand]
