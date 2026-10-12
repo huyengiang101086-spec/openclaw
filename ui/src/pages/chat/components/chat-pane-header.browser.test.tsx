@@ -1,5 +1,5 @@
 import type WaTooltip from "@awesome.me/webawesome/dist/components/tooltip/tooltip.js";
-import { html, render } from "lit";
+import { html, nothing, render } from "lit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installTitleTooltips } from "../../../components/tooltip-title.ts";
 import { i18n } from "../../../i18n/index.ts";
@@ -8,16 +8,17 @@ import {
   openChatLayoutMenu,
   selectChatLayoutAction,
 } from "../../../test-helpers/chat-layout-menu.ts";
-import { openSlot, setSidebarOpen } from "../sidebar-layout.ts";
+import { mountSolid } from "../../../test-helpers/mount-solid.ts";
 import "../../../styles.css";
 import "../../../styles/chat/startup-layout.css";
 import "../../../styles/chat/layout.css";
 import "../../../styles/chat/split-view.css";
+import { openSlot, setSidebarOpen } from "../sidebar-layout.ts";
 import type { ChatDetails } from "./chat-details.tsx";
 import { mountChatPaneHeader } from "./chat-pane-header.test-support.ts";
 import { renderChatPaneHeader } from "./chat-pane-header.ts";
 import "./chat-details.tsx";
-import { renderChatSidebarEditorMenu } from "./chat-sidebar-editor-menu.ts";
+import { ChatSidebarEditorMenu } from "./chat-sidebar-editor-menu.tsx";
 
 describe.skipIf(typeof HTMLElement.prototype.checkVisibility !== "function")(
   "chat pane branch tooltip positioning",
@@ -216,14 +217,17 @@ describe.skipIf(typeof HTMLElement.prototype.checkVisibility !== "function")(
           ],
         });
         if (editor) {
-          render(
-            renderChatSidebarEditorMenu({
-              absolutePath: "/repo/example.ts",
-              open: false,
-              onOpenChange: () => undefined,
-              onOpenEditor,
-            }),
-            container,
+          render(nothing, container);
+          mountSolid(
+            () => (
+              <ChatSidebarEditorMenu
+                absolutePath="/repo/example.ts"
+                open={false}
+                onOpenChange={() => undefined}
+                onOpenEditor={onOpenEditor}
+              />
+            ),
+            { container },
           );
         }
         container.style.cssText =
