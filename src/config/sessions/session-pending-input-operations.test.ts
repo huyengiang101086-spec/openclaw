@@ -124,6 +124,25 @@ function createFixture() {
   };
 }
 
+it("keeps host-created synchronous completion usable through the SDK compatibility window", async () => {
+  await withOpenClawTestState({ scenario: "minimal" }, async () => {
+    const { pending } = createFixture();
+    const recorder = createUserTurnTranscriptRecorder({
+      message: message("host-legacy"),
+      target: { ...scope, sessionEntry: { sessionId: scope.sessionId, updatedAt: 1 } },
+      trackInputCompletion: true,
+    });
+    expect(await recorder.stageApproved!({ runId: "host-legacy", assertCurrent: () => {} })).toBe(
+      true,
+    );
+    const outcome = buildAgentRunTerminalOutcome({ status: "ok" });
+    expect(recorder.completeProcessing!(outcome)).toEqual(outcome);
+    expect(recorder.getProcessingCompletion!()).toEqual(outcome);
+    expect(pending()).toEqual([]);
+    await recorder.waitForPendingInputSettlement!();
+  });
+});
+
 it("shares transaction rows without retaining stale custody and returns the persisted staging postimage", async () => {
   await withOpenClawTestState({ scenario: "minimal" }, async () => {
     const { database } = createFixture();

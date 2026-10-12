@@ -49,6 +49,31 @@ export function createUserTurnProcessingCompletion(
     },
     getProcessingCompletion: () =>
       processingCompletion?.ok ? processingCompletion.value : readPendingInput()?.completion,
+    completeProcessing: (outcome: AgentRunTerminalOutcome) => {
+      warnPluginSdkDeprecation({
+        family: "session-input-completion",
+        method: "UserTurnTranscriptRecorder.completeProcessing",
+        replacement: "completeProcessingAsync",
+      });
+      const pendingInput = readPendingInput();
+      if (!pendingInput?.complete) {
+        return undefined;
+      }
+      if (!processingCompletion) {
+        if (processingCompletionPromise) {
+          throw new Error("Input completion is pending; await completeProcessingAsync");
+        }
+        try {
+          processingCompletion = { ok: true, value: pendingInput.complete(outcome) };
+        } catch (error) {
+          processingCompletion = { ok: false, error };
+        }
+      }
+      if (!processingCompletion.ok) {
+        throw processingCompletion.error;
+      }
+      return processingCompletion.value;
+    },
     completeProcessingAsync: (outcome: AgentRunTerminalOutcome) => {
       const pendingInput = readPendingInput();
       if (processingCompletionPromise) {

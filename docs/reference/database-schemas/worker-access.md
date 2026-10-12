@@ -5051,9 +5051,10 @@ Finishing immediately revokes execution while the same owner protects history
 custody until its disposition settles. Recorder and database cleanup owners join
 accepted work before releasing their resources. Source receipts stay distinct
 from collected transcript messages, and processing completion remains distinct
-from transcript consumption. Incognito keeps its process-held owner. Core-created
-recorders and pending-input receipts complete through the worker; plugin-supplied
-synchronous completion callbacks remain accepted with a deprecation warning.
+from transcript consumption. Incognito keeps its process-held owner. Bundled
+callers complete through the worker. Host-created recorders retain the deprecated
+synchronous completion adapter and immediate transaction semantics until the next
+Plugin SDK major; it warns on use. Plugin-supplied legacy callbacks remain accepted.
 Confirmed worker receipts publish custody under the current owner
 without rereading a native handle's mutation revision: an independent committed
 write does not invalidate that receipt. Schemas, stored
