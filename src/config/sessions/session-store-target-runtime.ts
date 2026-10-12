@@ -142,8 +142,7 @@ export function prepareSessionStoreTargetInventoryRead(
             ],
             // Only fixed-store visibility depends on the session rows. Per-agent
             // topology changes with physical files or registry ownership, not activity.
-            request.selection === undefined &&
-              !isPerAgentSessionStoreConfig(request.config.session?.store),
+            !isPerAgentSessionStoreConfig(request.config.session?.store),
           );
           let inventory =
             memo.read() ??
