@@ -47,17 +47,19 @@ function isCurrentUpdateRunContinuation(
     return false;
   }
   const drivers = recordedUpdateRunDrivers(record);
-  const ancestry = inspectSelfAndAncestorPidsSync(undefined, { requireVerifiedParent: true });
-  if (!ancestry.complete) {
-    return false;
-  }
   let ownsDriver = false;
   for (const driver of drivers) {
+    // Verify containment through this driver; higher supervisors do not own
+    // this continuation and may legitimately be unreadable.
+    const ancestry = inspectSelfAndAncestorPidsSync(undefined, {
+      requireVerifiedParent: true,
+      throughPid: driver.pid,
+    });
     const liveness = inspectUpdateRunDriver(driver);
     if (liveness === "dead") {
       continue;
     }
-    if (liveness !== "alive" || !ancestry.pids.has(driver.pid)) {
+    if (liveness !== "alive" || !ancestry.complete || !ancestry.pids.has(driver.pid)) {
       return false;
     }
     ownsDriver = true;
