@@ -255,9 +255,9 @@ Ordinary discovery keeps one captured roster and listing through completion.
 Later registry, path, or row changes are observed on the next owner preparation;
 there is no post-read registry retry or repeated listing-identity capture.
 Registry receipts and physical replacement invalidate reusable target facts.
-Session-row writes invalidate only fixed-store inventories that derive agent
-visibility from those rows. Per-agent and configured inventories retain their
-path and registry facts across ordinary turns, avoiding another discovery and
+Session-row writes invalidate fixed-store inventories, whose agent visibility
+can depend on those rows. Per-agent inventories retain their path and registry
+facts across ordinary turns, avoiding another discovery and
 reader-cleanup request. Current authorization at
 search disclosure, project removal, and other real effects remains required.
 The released synchronous transcript-hit SDK and native mutation callbacks retain
