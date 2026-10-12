@@ -20,29 +20,34 @@ import {
 const suite = createSessionManagementE2eSuite();
 
 suite.define(() => {
-  it("activates a self-removing archive control after bringing it into view", async () => {
-    await suite.withPage(createControlUiE2eContextOptions(), async ({ page }) => {
+  it("waits for lifecycle actionability before activating a self-removing control once", async () => {
+    const context = await suite.browser.newContext({ viewport: { width: 390, height: 320 } });
+    const page = await context.newPage();
+    try {
       await page.setContent(
-        '<main style="padding-top: 1200px"><button type="button">Unarchive</button><output>0</output></main>',
+        '<main style="padding-top: 900px"><button disabled>Unarchive</button></main>',
       );
-      const control = page.getByRole("button", { name: "Unarchive" });
-      await control.evaluate((element) => {
-        element.addEventListener("click", () => {
-          const count = document.querySelector("output")!;
-          count.textContent = String(Number(count.textContent) + 1);
-          element.remove();
+      await page.evaluate(() => {
+        const button = document.querySelector<HTMLButtonElement>("button");
+        if (!button) {
+          throw new Error("Lifecycle fixture control is missing");
+        }
+        document.body.dataset.activations = "0";
+        button.addEventListener("click", () => {
+          document.body.dataset.activations = String(Number(document.body.dataset.activations) + 1);
+          button.remove();
+        });
+        requestAnimationFrame(() => {
+          button.disabled = false;
         });
       });
-      expect(await control.isVisible()).toBe(true);
-      expect(
-        await control.evaluate((element) => element.getBoundingClientRect().top >= innerHeight),
-      ).toBe(true);
-
-      await activateSelfRemovingControl(control);
-
-      expect(await control.count()).toBe(0);
-      expect(await page.locator("output").textContent()).toBe("1");
-    });
+      const unarchive = page.getByRole("button", { name: "Unarchive", exact: true });
+      await activateSelfRemovingControl(unarchive);
+      expect(await unarchive.count()).toBe(0);
+      expect(await page.locator("body").getAttribute("data-activations")).toBe("1");
+    } finally {
+      await context.close();
+    }
   });
 
   for (const viewport of [
