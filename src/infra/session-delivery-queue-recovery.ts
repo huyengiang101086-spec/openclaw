@@ -197,35 +197,6 @@ async function processPendingSessionDelivery(opts: {
   return { status: result, finalized };
 }
 
-async function processDrainedSessionDelivery(
-  entry: QueuedSessionDelivery,
-  context: SessionDeliveryDrainContext,
-  bypassBackoff?: boolean,
-) {
-  const result = await processPendingSessionDelivery({
-    entry,
-    context,
-    bypassBackoff,
-    onFailed: (failedEntry, errMsg) => {
-      context.log.warn(`${context.logLabel}: retry failed for entry ${failedEntry.id}: ${errMsg}`);
-    },
-  });
-  if (result.status === "max-retries" && result.finalized) {
-    context.log.warn(
-      `${context.logLabel}: entry ${entry.id} exceeded max retries and was moved to failed`,
-    );
-  } else if (result.status === "moved-to-failed" && result.finalized) {
-    context.log.warn(
-      `${context.logLabel}: entry ${entry.id} was dead-lettered and moved to failed`,
-    );
-  } else if (result.status === "backoff") {
-    context.log.info(
-      `${context.logLabel}: entry ${entry.id} not ready for retry yet — backoff ${result.remainingMs}ms remaining`,
-    );
-  }
-  return result;
-}
-
 /** Drain one exact queued session delivery and return its final pending state. */
 export async function drainPendingSessionDelivery(
   opts: SessionDeliveryDrainContext & { id: string; bypassBackoff?: boolean },
@@ -235,7 +206,25 @@ export async function drainPendingSessionDelivery(
     if (!entry) {
       return null;
     }
-    const result = await processDrainedSessionDelivery(entry, opts, opts.bypassBackoff);
+    const result = await processPendingSessionDelivery({
+      entry,
+      context: opts,
+      bypassBackoff: opts.bypassBackoff,
+      onFailed: (failedEntry, errMsg) => {
+        opts.log.warn(`${opts.logLabel}: retry failed for entry ${failedEntry.id}: ${errMsg}`);
+      },
+    });
+    if (result.status === "max-retries" && result.finalized) {
+      opts.log.warn(
+        `${opts.logLabel}: entry ${entry.id} exceeded max retries and was moved to failed`,
+      );
+    } else if (result.status === "moved-to-failed" && result.finalized) {
+      opts.log.warn(`${opts.logLabel}: entry ${entry.id} was dead-lettered and moved to failed`);
+    } else if (result.status === "backoff") {
+      opts.log.info(
+        `${opts.logLabel}: entry ${entry.id} not ready for retry yet — backoff ${result.remainingMs}ms remaining`,
+      );
+    }
     if (result.status === "already-gone" || ("finalized" in result && result.finalized)) {
       return null;
     }
