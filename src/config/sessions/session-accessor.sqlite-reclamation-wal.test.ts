@@ -238,7 +238,7 @@ test.each([
       expect(ordering).toEqual(["archive-start", "archive-complete", "following-writer"]);
       expect(parentReclaim).not.toHaveBeenCalled();
       if (recovery !== "reclaim") {
-        closeCachedOpenClawAgentDatabase(database, { eviction: true });
+        closeCachedOpenClawAgentDatabase(database);
         expect(database.db.isOpen).toBe(false);
         const deferredCheckpoint = budget.checkpointBlocked;
         assert(deferredCheckpoint);
@@ -409,7 +409,6 @@ test("periodic vacuum waits for an admitted reclamation to settle", async () => 
   };
   try {
     const reclamation = runSqliteSessionReclamation({
-      forceInProcess: false,
       plan,
     });
     await expect(reclamation).resolves.toMatchObject({
