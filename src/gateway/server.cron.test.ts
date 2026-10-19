@@ -1054,7 +1054,8 @@ describe("gateway server cron", () => {
         } else {
           repairOutcome.resolve(result);
         }
-        return result;
+        // The command boundary serializes the silent result as an empty payload list.
+        return { meta: result.meta, payloads: [] };
       } catch (error) {
         if (command.runId === publicRunId) {
           publicOutcome.resolve({ error });
