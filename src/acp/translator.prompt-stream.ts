@@ -492,7 +492,9 @@ export class AcpTranslatorPromptStream {
     if (state === "error") {
       const errorKind = payload.errorKind as string | undefined;
       const stopReason: StopReason = errorKind === "refusal" ? "refusal" : "end_turn";
-      void this.finishPrompt(pending.sessionId, pending, stopReason);
+      const interruption =
+        typeof payload.errorMessage === "string" ? payload.errorMessage : undefined;
+      await this.finishPrompt(pending.sessionId, pending, stopReason, { interruption });
     }
   }
 
