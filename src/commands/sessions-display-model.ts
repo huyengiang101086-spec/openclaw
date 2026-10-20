@@ -18,15 +18,6 @@ type SessionDisplayModelRow = Pick<
   key: string;
 };
 
-function resolveSessionDisplayDefaults(cfg: OpenClawConfig, agentId?: string): ModelRef {
-  return resolveDefaultModelForAgent({
-    cfg,
-    agentId,
-    allowManifestNormalization: false,
-    allowPluginNormalization: false,
-  });
-}
-
 function normalizeCliRuntimeDisplayRef(
   cfg: OpenClawConfig,
   agentId: string | undefined,
@@ -76,7 +67,12 @@ export function resolveSessionDisplayModelRef(
 ): ModelRef {
   const agentId =
     ownerAgentId ?? (row.key.startsWith("agent:") ? row.key.split(":")[1] : undefined);
-  const defaultRef = resolveSessionDisplayDefaults(cfg, agentId);
+  const defaultRef = resolveDefaultModelForAgent({
+    cfg,
+    agentId,
+    allowManifestNormalization: false,
+    allowPluginNormalization: false,
+  });
   const normalizedOverride = normalizeStoredOverrideModel({
     providerOverride: row.providerOverride,
     modelOverride: row.modelOverride,
