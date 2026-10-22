@@ -1016,8 +1016,7 @@ describe("gateway server cron", () => {
     const publicRunId = "public-cron-repair-provenance";
     const { request, run } = await startCronClient();
     await prepareGatewayReplyRuntimeForTest({ force: true });
-    agentCommandMock.mockImplementation(async (input) => {
-      const command = input as AgentCommandOpts;
+    agentCommandMock.mockImplementation(async (command: AgentCommandOpts) => {
       const context = buildPreparedCliRunContext({
         workspaceDir: caseDir,
         sessionKey: command.sessionKey,
