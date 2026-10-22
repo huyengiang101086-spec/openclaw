@@ -1,3 +1,4 @@
+import { createRouter } from "@openclaw/uirouter";
 import { flush } from "solid-js";
 import { expect, onTestFinished, vi } from "vitest";
 import type { WebSearchStatusResult } from "../../../../packages/gateway-protocol/src/schema/web-search.ts";
@@ -7,7 +8,6 @@ import type {
   ApplicationGatewaySnapshot,
 } from "../../app/context.ts";
 import { i18n } from "../../i18n/lib/translate.ts";
-import { settleModelCatalogRequests } from "../../lib/model-catalog-store.ts";
 import { ApplicationProvider } from "../../lib/reactive/context.ts";
 import {
   createGatewayRequestMock,
@@ -116,6 +116,7 @@ export async function mountSearch<R>(options: {
   }));
   const context = {
     basePath: "",
+    router: createRouter({ routes: [] }),
     gateway: connection.gateway,
     runtimeConfig: runtime,
     settingsAgentSelection: { ...selection, set: setAgent },
@@ -149,7 +150,6 @@ export async function mountSearch<R>(options: {
   });
   const settle = async (includeTests = false) => {
     flush();
-    await settleModelCatalogRequests(client, { agentId: selection.state.selectedId });
     await Promise.allSettled(
       pending
         .filter(
